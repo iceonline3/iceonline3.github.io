@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>贪吃蛇 · 多维模式</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    background:#0a0a0c; color:#e5e5e5;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    overflow-x:hidden;
+  }
+  .hidden { display:none !important; }
+  kbd {
+    background:#27272a; border:1px solid #3f3f46; border-bottom-width:2px;
+    border-radius:5px; padding:1px 7px; font-size:.72em; color:#a1a1aa;
+    font-family:inherit; margin-left:6px;
+  }
+
+  /* ===== 竖向主菜单（游戏主菜单风）===== */
+  .menu-panel {
+    width:min(560px,94vw); margin:auto; padding:34px 0 20px;
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+  }
+  .menu-panel h1 {
+    font-size:30px; letter-spacing:2px; color:#f4f4f5;
+    text-shadow:0 0 24px rgba(34,197,94,.35);
+  }
+  .menu-panel h1 small { display:block; font-size:13px; color:#71717a; letter-spacing:4px; margin-top:6px; font-weight:400; }
+  .menu-screen { width:100%; }
+  .menu-list { list-style:none; display:flex; flex-direction:column; gap:10px; }
+  .menu-item {
+    position:relative; display:flex; align-items:center; gap:10px;
+    background:#18181b; border:1px solid #27272a; border-radius:12px;
+    padding:15px 18px; cursor:pointer; user-select:none;
+    transition:transform .08s ease, background .12s ease, border-color .12s ease;
+    font-size:17px;
+  }
+  .menu-item .label { flex:1; }
+  .menu-item .right { display:flex; align-items:center; gap:8px; }
+  .menu-item .cur { color:#4ade80; font-size:14px; min-width:70px; text-align:right; }
+  .menu-item .arrow { color:#52525b; font-size:20px; }
+  .menu-item .check { color:#22c55e; width:18px; text-align:center; font-weight:700; }
+  .menu-item:hover { background:#1f1f23; }
+  .menu-item.hovered {
+    background:#14532d; border-color:#22c55e; transform:translateX(6px);
+    box-shadow:0 0 0 1px #22c55e, 0 6px 22px rgba(34,197,94,.25);
+  }
+  .menu-item.primary {
+    background:linear-gradient(135deg,#166534,#15803d); border-color:#22c55e;
+    font-size:19px; font-weight:700; color:#f0fdf4;
+  }
+  .menu-item.primary.hovered { background:linear-gradient(135deg,#15803d,#16a34a); }
+  .menu-item.back { background:transparent; border-style:dashed; color:#a1a1aa; font-size:15px; padding:11px 18px; }
+  .menu-hint { color:#52525b; font-size:13px; letter-spacing:1px; }
+
+  /* ===== 图例 ===== */
+  #legend { width:100%; display:flex; flex-direction:column; gap:7px; margin-top:4px; max-height:46vh; overflow:auto; padding:2px; }
+  #legend .li {
+    display:flex; align-items:center; gap:12px; background:#18181b;
+    border:1px solid #27272a; border-radius:9px; padding:8px 12px; font-size:14px;
+  }
+  #legend .glyph {
+    width:26px; height:26px; flex:none; display:flex; align-items:center; justify-content:center;
+  }
+  #legend .glyph svg { display:block; }
+  #legend .nm { font-weight:600; min-width:74px; }
+  #legend .fx { color:#a1a1aa; flex:1; }
+  #legend .tag-pos { color:#4ade80; font-size:12px; }
+  #legend .tag-neg { color:#f87171; font-size:12px; }
+
+  /* ===== 游戏区 ===== */
+  #game-wrap { margin:auto; display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px; }
+  #hud {
+    width:100%; max-width:960px; display:flex; flex-wrap:wrap; gap:8px 18px;
+    background:#18181b; border:1px solid #27272a; border-radius:10px; padding:9px 14px;
+    font-size:14px; color:#a1a1aa;
+  }
+  #hud b { color:#f4f4f5; font-variant-numeric:tabular-nums; }
+  #hud .buff { color:#2dd4bf; font-weight:700; }
+  #hud .danger { color:#f87171; font-weight:700; }
+  #cv {
+    background:#0d0d10; border:1px solid #27272a; border-radius:10px;
+    touch-action:none; max-width:96vw; max-height:74vh;
+  }
+  #overlay {
+    position:fixed; inset:0; background:rgba(5,5,8,.78); backdrop-filter:blur(3px);
+    display:flex; align-items:center; justify-content:center; z-index:20;
+  }
+  #overlay .card {
+    background:#18181b; border:1px solid #3f3f46; border-radius:16px;
+    padding:30px 40px; text-align:center; max-width:88vw;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+  }
+  #overlay .card h2 { font-size:26px; margin-bottom:12px; color:#f4f4f5; }
+  #overlay .card p { color:#a1a1aa; margin:6px 0; font-size:15px; }
+  #overlay .card .big { font-size:34px; color:#4ade80; font-weight:800; margin:8px 0; }
+  #overlay .card .ops { margin-top:16px; color:#71717a; font-size:13px; line-height:1.9; }
+
+  #hint { color:#52525b; font-size:12px; padding:10px 14px 16px; text-align:center; max-width:96vw; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<!-- ===== 竖向主菜单 ===== -->
+<div id="menu" class="menu-panel">
+  <h1>🐍 贪吃蛇<small>多维模式 · MULTI MODE</small></h1>
+
+  <div id="menu-main" class="menu-screen">
+    <ul class="menu-list">
+      <li class="menu-item primary" data-action="start"><span class="label">开始游戏</span><span class="right"><kbd>Enter</kbd></span></li>
+      <li class="menu-item" data-action="mode"><span class="label">游戏模式</span><span class="cur" id="cur-mode"></span><span class="arrow">›</span></li>
+      <li class="menu-item" data-action="orient"><span class="label">网格布局</span><span class="cur" id="cur-orient"></span><span class="arrow">›</span></li>
+      <li class="menu-item" data-action="legend"><span class="label">图例说明</span><span class="arrow">›</span></li>
+    </ul>
+  </div>
+
+  <div id="menu-mode" class="menu-screen hidden">
+    <ul class="menu-list">
+      <li class="menu-item back" data-back><span class="label">← 返回</span></li>
+      <li class="menu-item" data-mode="endless"><span class="label">无尽模式</span><span class="right"><kbd>1</kbd><span class="check"></span></span></li>
+      <li class="menu-item" data-mode="clear"><span class="label">通关模式</span><span class="right"><kbd>2</kbd><span class="check"></span></span></li>
+      <li class="menu-item" data-mode="bonus"><span class="label">Bonus 模式</span><span class="right"><kbd>3</kbd><span class="check"></span></span></li>
+      <li class="menu-item" data-mode="puzzle"><span class="label">解谜模式</span><span class="right"><kbd>4</kbd><span class="check"></span></span></li>
+    </ul>
+  </div>
+
+  <div id="menu-orient" class="menu-screen hidden">
+    <ul class="menu-list">
+      <li class="menu-item back" data-back><span class="label">← 返回</span></li>
+      <li class="menu-item" data-orient="auto"><span class="label">自动（跟随屏幕）</span><span class="right"><kbd>5</kbd><span class="check"></span></span></li>
+      <li class="menu-item" data-orient="landscape"><span class="label">横屏 30×20</span><span class="right"><kbd>6</kbd><span class="check"></span></span></li>
+      <li class="menu-item" data-orient="portrait"><span class="label">竖屏 20×30</span><span class="right"><kbd>7</kbd><span class="check"></span></span></li>
+    </ul>
+  </div>
+
+  <div id="menu-legend" class="menu-screen hidden">
+    <ul class="menu-list">
+      <li class="menu-item back" data-back><span class="label">← 返回</span></li>
+    </ul>
+    <div id="legend"></div>
+  </div>
+
+  <p class="menu-hint">↑↓ 选择 · Enter 确认 · 1-7 快捷 · Esc 返回</p>
+</div>
+
+<!-- ===== 游戏区 ===== -->
+<div id="game-wrap" class="hidden">
+  <div id="hud"></div>
+  <canvas id="cv"></canvas>
+</div>
+
+<div id="overlay" class="hidden"><div class="card" id="overlay-card"></div></div>
+
+<p id="hint">游戏中：方向键/WASD 移动 · 空格 暂停 · R 重开｜菜单：↑↓ 选择 · Enter 确认 · 1-7 快捷｜结算：Enter 继续 · Esc 返回 · 手机可滑动</p>
+
+<script>
+"use strict";
+/* ================= 配置 ================= */
+const ORIENT = { landscape:{rows:20,cols:30}, portrait:{rows:30,cols:20} };
+const BASE_STEP = 450;   // 起步 450ms
+const MIN_STEP  = 70;    // 最快 70ms
+const CLEAR_LEVELS = 10;
+const BONUS_TIME   = 60; // 秒
+const PUZZLE_LEVELS = 8;
+
+// 正向食物=绿色系，负向食物=红色系
+const FOODS = {
+  normal:  { name:"普通食物", color:"#22c55e", shape:"circle",   effect:"+1 分 · 长 1",        score:1,  grow:1 },
+  gold:    { name:"翡翠食物", color:"#10b981", shape:"diamond",  effect:"+50 分 · 长 3",       score:50, grow:3 },
+  star:    { name:"星星",     color:"#a3e635", shape:"star",     effect:"+20 分 · 长 1",       score:20, grow:1 },
+  speed:   { name:"加速",     color:"#2dd4bf", shape:"triangle", effect:"8s 内提速 ×1.5",      buff:"speed",  buffMs:8000 },
+  slow:    { name:"减速",     color:"#84cc16", shape:"circle",   effect:"8s 内减速 ×0.7",      buff:"slow",   buffMs:8000 },
+  shrink:  { name:"缩短",     color:"#6ee7b7", shape:"cross",    effect:"身体 -3 节（保底 2）",buff:"shrink" },
+  poison:  { name:"毒物",     color:"#dc2626", shape:"square",   effect:"吃到即死亡",          hostile:true },
+  reverse: { name:"反向",     color:"#f87171", shape:"triangle", effect:"6s 方向反转",         hostile:true, buff:"reverse", buffMs:6000 },
+  rage:    { name:"狂暴",     color:"#b91c1c", shape:"circle",   effect:"6s 内撞地形扣 10 分", hostile:true, buff:"rage", buffMs:6000 },
+};
+// 各模式食物权重 [type, weight]
+const FOOD_TABLES = {
+  endless: [["normal",55],["gold",8],["star",12],["speed",8],["slow",7],["shrink",5],["poison",4]],
+  clear:   [["normal",60],["gold",10],["star",14],["speed",9],["shrink",7]],
+  bonus:   [["normal",40],["gold",18],["star",22],["speed",12],["slow",8]],
+  puzzle:  [["normal",70],["star",20],["gold",10]],
+};
+
+/* ================= 状态 ================= */
+let g = null;                 // 当前对局
+let selectedMode = "endless";
+let selectedOrient = "auto";
+let menuScreen = "main";
+let menuHighlight = 0;
+let lastStepTs = 0;
+
+const $ = (id) => document.getElementById(id);
+const menuEl = $("menu"), gameWrap = $("game-wrap"), cv = $("cv"), ctx = cv.getContext("2d");
+const hud = $("hud"), overlay = $("overlay"), overlayCard = $("overlay-card");
+
+/* ================= 工具 ================= */
+function resolveOrient() {
+  if (selectedOrient === "auto") return window.innerWidth >= window.innerHeight ? "landscape" : "portrait";
+  return selectedOrient;
+}
+function dims() { return ORIENT[resolveOrient()]; }
+function cellSize() {
+  const d = dims();
+  const aw = Math.min(window.innerWidth - 36, 1200);
+  const ah = window.innerHeight - 170;
+  const s = Math.floor(Math.min(aw / d.cols, ah / d.rows));
+  return Math.max(8, Math.min(30, s));
+}
+function rr(c, x, y, w, h, r) { // 圆角矩形路径
+  r = Math.min(r, w/2, h/2);
+  c.beginPath();
+  c.moveTo(x+r, y);
+  c.arcTo(x+w, y,   x+w, y+h, r);
+  c.arcTo(x+w, y+h, x,   y+h, r);
+  c.arcTo(x,   y+h, x,   y,   r);
+  c.arcTo(x,   y,   x+w, y,   r);
+  c.closePath();
+}
+function pickWeighted(table) {
+  const total = table.reduce((s,e)=>s+e[1],0);
+  let x = Math.random()*total;
+  for (const [t,w] of table) { if ((x -= w) < 0) return t; }
+  return table[0][0];
+}
+
+/* ================= 速度 ================= */
+function baseStepMs() {
+  const scoreCut = Math.floor(g.score/50)*8;
+  const lenCut   = Math.max(0, g.snake.length-3)*2;
+  return Math.max(MIN_STEP, BASE_STEP - scoreCut - lenCut);
+}
+function buffMult() {
+  let m = 1;
+  if (g.buffs.speed)   m *= 1.5;
+  if (g.buffs.slow)    m *= 0.7;
+  return m;
+}
+function currentStepMs() { return Math.max(MIN_STEP, baseStepMs()/buffMult()); }
+function speedLevel() { // Lv1-10
+  const t = (BASE_STEP - baseStepMs()) / (BASE_STEP - MIN_STEP);
+  return Math.min(10, Math.max(1, Math.ceil(t*9)+1));
+}
+
+/* ================= 地形 ================= */
+function scatterTerrain(d, density) { // 随机敌对地形块
+  const set = new Set();
+  let placed = 0, target = Math.floor(d.rows*d.cols*density), guard = 0;
+  while (placed < target && guard++ < 4000) {
+    const r = 1+Math.floor(Math.random()*(d.rows-2));
+    const c = 1+Math.floor(Math.random()*(d.cols-2));
+    if (r<3 && c<6) continue; // 出生区留空
+    const key = r+","+c;
+    if (set.has(key)) continue;
+    set.add(key); placed++;
+    if (Math.random()<0.5) { const k2=(r)+","+(c+1); if (!set.has(k2) && c+1<d.cols-1) { set.add(k2); placed++; } }
+  }
+  return set;
+}
+function genMaze(d) { // DFS 迷宫（奇数坐标开凿，外圈留墙）
+  const wall = Array.from({length:d.rows}, ()=>Array(d.cols).fill(true));
+  const stack = [[1,1]]; wall[1][1] = false;
+  const dirs = [[-2,0],[2,0],[0,-2],[0,2]];
+  while (stack.length) {
+    const [r,c] = stack[stack.length-1];
+    const opts = [];
+    for (const [dr,dc] of dirs) {
+      const nr=r+dr, nc=c+dc;
+      if (nr>0 && nr<d.rows-1 && nc>0 && nc<d.cols-1 && wall[nr][nc]) opts.push([nr,nc,dr,dc]);
+    }
+    if (!opts.length) { stack.pop(); continue; }
+    const [nr,nc,dr,dc] = opts[Math.floor(Math.random()*opts.length)];
+    wall[r+dr/2][c+dc/2] = false;
+    wall[nr][nc] = false;
+    stack.push([nr,nc]);
+  }
+  // DFS 不保证 (1,1) 的两条邻接走廊都开凿；强制打开 (1,2) 与 (2,1)，保证蛇起步安全
+  wall[1][2] = false; wall[2][1] = false;
+  return new Set(Array.from({length:d.rows},(_,r)=>Array.from({length:d.cols},(_,c)=>wall[r][c]?r+","+c:null)).flat().filter(Boolean));
+}
+function bfsFarthest(terrain, d, start) { // BFS 最远通路 = 目标点
+  const dist = new Map(); const q = [start]; dist.set(start[0]+","+start[1], 0);
+  let far = start;
+  while (q.length) {
+    const cur = q.shift(); const dd = dist.get(cur[0]+","+cur[1]);
+    for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nr=cur[0]+dr, nc=cur[1]+dc;
+      if (nr<0||nr>=d.rows||nc<0||nc>=d.cols) continue;
+      const k = nr+","+nc;
+      if (terrain.has(k) || dist.has(k)) continue;
+      dist.set(k, dd+1);
+      if (dd+1 > dist.get(far[0]+","+far[1])) far = [nr,nc];
+      q.push([nr,nc]);
+    }
+  }
+  return far;
+}
+
+/* ================= 食物 ================= */
+function freeCell(d) {
+  for (let i=0;i<2000;i++) {
+    const r = Math.floor(Math.random()*d.rows), c = Math.floor(Math.random()*d.cols);
+    if (g.terrain.has(r+","+c)) continue;
+    if (g.snake.some(s=>s.r===r&&s.c===c)) continue;
+    if (g.foods.some(f=>f.r===r&&f.c===c)) continue;
+    if (g.mode==="puzzle" && g.goal && g.goal[0]===r && g.goal[1]===c) continue;
+    return {r,c};
+  }
+  return null;
+}
+function spawnFood() {
+  const d = dims();
+  const cell = freeCell(d);
+  if (!cell) return;
+  const type = pickWeighted(FOOD_TABLES[g.mode]);
+  g.foods.push({r:cell.r, c:cell.c, type});
+}
+function ensureFood() {
+  const want = g.mode==="puzzle" ? 2 : (g.mode==="bonus" ? 4 : 3);
+  while (g.foods.length < want) spawnFood();
+}
+
+/* ================= 对局 ================= */
+function targetLength(level) { return 5 + level*3; }
+
+function newGame() {
+  const d = dims();
+  g = {
+    mode: selectedMode,
+    rows: d.rows, cols: d.cols,
+    snake: [{r:2,c:2},{r:2,c:1},{r:2,c:0}],
+    dir: {dr:0,dc:1}, nextDir: {dr:0,dc:1},
+    grow: 0, score: 0, status: "playing",
+    foods: [], terrain: new Set(),
+    buffs: {}, // speed/slow/reverse/rage -> 到期时间戳
+    level: 1, timeLeft: BONUS_TIME, combo: 1, lastEatTs: -1e9, // 负无穷：首颗食物必从 ×1 起算，避免页面加载 4s 内误判连击
+    goal: null, hi: +(localStorage.getItem("snake_hi_"+selectedMode)||0),
+  };
+  if (g.mode === "puzzle") {
+    g.terrain = genMaze(d);
+    g.goal = bfsFarthest(g.terrain, d, [1,1]);
+    // 头 (1,1)、身体向右延伸；DFS 迷宫保证 (1,2) 与 (2,1) 均通路，初始方向向下避开身体
+    g.snake = [{r:1,c:1},{r:1,c:2},{r:1,c:3}];
+    g.dir = {dr:1,dc:0}; g.nextDir = {dr:1,dc:0};
+  } else {
+    g.terrain = scatterTerrain(d, 0.07); // 敌对地形比例 7%（<10%，解谜模式除外——迷宫本身需要高墙占比）
+  }
+  ensureFood();
+  lastStepTs = performance.now();
+  hideOverlay();
+  updateHUD();
+}
+/* ================= 步进 ================= */
+function step() {
+  if (!g || g.status !== "playing") return;
+  const now = performance.now();
+  // buff 到期清理
+  for (const k of Object.keys(g.buffs)) if (g.buffs[k] <= now) delete g.buffs[k];
+
+  let dir = g.nextDir;
+  if (g.buffs.reverse) dir = {dr:-dir.dr, dc:-dir.dc};
+  const head = g.snake[0];
+  const nr = head.r + dir.dr, nc = head.c + dir.dc;
+
+  // 撞墙 / 撞地形 / 撞自己
+  if (nr<0 || nr>=g.rows || nc<0 || nc>=g.cols) return die("撞到了边界");
+  if (g.terrain.has(nr+","+nc)) {
+    if (g.buffs.rage) { // 狂暴状态：撞地形扣 10 分并反弹，不死亡
+      g.score = Math.max(0, g.score-10);
+      g.dir = {dr:-g.dir.dr, dc:-g.dir.dc};
+      g.nextDir = {dr:g.dir.dr, dc:g.dir.dc};
+      toast("狂暴反弹 -10");
+      updateHUD();
+      return;
+    }
+    return die("撞到了敌对地形");
+  }
+  const bodyHit = g.snake.some((s,i)=> i < g.snake.length - (g.grow>0?0:1) && s.r===nr && s.c===nc);
+  if (bodyHit) return die("咬到了自己");
+
+  // 预计算本步增长（吃到食物当步即长）
+  const food = g.foods.find(f=>f.r===nr&&f.c===nc);
+  let growAdd = 0;
+  if (food) {
+    const F = FOODS[food.type];
+    growAdd = F.grow || 0;
+    if (F.score) g.score += F.score * (g.mode==="bonus" ? g.combo : 1);
+    if (F.buff) g.buffs[F.buff] = now + (F.buffMs||6000);
+    if (F.buff === "shrink") { const cut = Math.min(3, g.snake.length-2); for(let i=0;i<cut;i++) g.snake.pop(); }
+    if (food.type === "poison") { g.foods.splice(g.foods.indexOf(food),1); return die("吃到了毒物"); }
+    g.foods.splice(g.foods.indexOf(food),1);
+    ensureFood();
+    // bonus 连击
+    if (g.mode==="bonus") {
+      if (now - g.lastEatTs < 4000) g.combo = Math.min(8, g.combo+1); else g.combo = 1;
+      g.lastEatTs = now;
+    }
+  }
+
+  // 移动：头进尾出（增长时保留尾巴）
+  g.snake.unshift({r:nr,c:nc});
+  if (g.grow + growAdd > 0) { g.grow = g.grow + growAdd - 1; } else { g.snake.pop(); }
+
+  // 通关模式：达到目标长度进下一关
+  if (g.mode==="clear") {
+    if (g.snake.length >= targetLength(g.level)) {
+      if (g.level >= CLEAR_LEVELS) return win("全部通关！");
+      g.level++; g.score += 30;
+      toast("第 "+g.level+" 关 · 目标长度 "+targetLength(g.level));
+    }
+  }
+  // bonus 计时
+  if (g.mode==="bonus") {
+    g.timeLeft -= currentStepMs()/1000;
+    if (g.timeLeft <= 0) return win("时间到！");
+  }
+  // 解谜：到达目标点
+  if (g.mode==="puzzle" && g.goal && nr===g.goal[0] && nc===g.goal[1]) {
+    if (g.level >= PUZZLE_LEVELS) return win("迷宫大师！");
+    g.level++; g.score += 40;
+    const d = dims();
+    g.terrain = genMaze(d);
+    g.goal = bfsFarthest(g.terrain, d, [1,1]);
+    g.snake = [{r:1,c:1},{r:1,c:2},{r:1,c:3}];
+    g.dir = {dr:1,dc:0}; g.nextDir = {dr:1,dc:0};
+    toast("第 "+g.level+" 座迷宫");
+  }
+  updateHUD();
+}
+
+function die(reason) {
+  if (!g || g.status!=="playing") return;
+  g.status = "dead";
+  saveHi();
+  showOverlay(
+    '<h2>💀 游戏结束</h2><p>'+reason+'</p>' +
+    '<div class="big">'+g.score+' 分</div>' +
+    (g.score>=g.hi && g.score>0 ? '<p style="color:#facc15">🏆 新纪录！</p>':'<p>最高纪录 '+g.hi+'</p>') +
+    '<div class="ops">Enter / 点击 再来一局 · Esc 返回菜单</div>'
+  );
+}
+function win(reason) {
+  if (!g || g.status!=="playing") return;
+  g.status = "won";
+  saveHi();
+  showOverlay(
+    '<h2>🎉 '+reason+'</h2><div class="big">'+g.score+' 分</div>' +
+    '<p>'+ (g.mode==="clear"?"通关 "+CLEAR_LEVELS+" 关":g.mode==="bonus"?"最终得分":"完成 "+g.level+" 座迷宫") +' · 长度 '+g.snake.length+'</p>' +
+    '<div class="ops">Enter / 点击 再来一局 · Esc 返回菜单</div>'
+  );
+}
+function saveHi() { if (g && g.score > g.hi) { g.hi = g.score; localStorage.setItem("snake_hi_"+g.mode, g.hi); } }
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.createElement("div");
+  el.textContent = msg;
+  el.style.cssText = "position:fixed;top:14%;left:50%;transform:translateX(-50%);background:#14532d;border:1px solid #22c55e;color:#f0fdf4;padding:8px 20px;border-radius:10px;z-index:30;font-size:15px;box-shadow:0 8px 30px rgba(0,0,0,.5)";
+  document.body.appendChild(el);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.remove(), 1400);
+}
+
+/* ================= HUD / 覆盖层 ================= */
+function updateHUD() {
+  if (!g) return;
+  let h = '<span>分数 <b>'+g.score+'</b></span><span>长度 <b>'+g.snake.length+'</b></span>';
+  h += '<span>速度 <b>Lv'+speedLevel()+'</b></span>';
+  const m = buffMult();
+  if (Math.abs(m-1) > 0.01) h += '<span class="buff">×'+m.toFixed(2)+'</span>';
+  if (g.buffs.reverse) h += '<span class="danger">反向!</span>';
+  if (g.buffs.rage)    h += '<span class="danger">狂暴!</span>';
+  if (g.mode==="clear")  h += '<span>关卡 <b>'+g.level+'/'+CLEAR_LEVELS+'</b></span><span>目标长度 <b>'+targetLength(g.level)+'</b></span>';
+  if (g.mode==="bonus")  h += '<span>时间 <b>'+Math.max(0,Math.ceil(g.timeLeft))+'s</b></span><span>连击 <b>×'+g.combo+'</b></span>';
+  if (g.mode==="puzzle") h += '<span>迷宫 <b>'+g.level+'/'+PUZZLE_LEVELS+'</b></span>';
+  if (g.mode==="endless") h += '<span>最高 <b>'+Math.max(g.hi,g.score)+'</b></span>';
+  hud.innerHTML = h;
+}
+function showOverlay(html) { overlayCard.innerHTML = html; overlay.classList.remove("hidden"); }
+function hideOverlay() { overlay.classList.add("hidden"); }
+
+/* ================= 渲染 ================= */
+function drawShape(x, y, size, shape, color) {
+  ctx.fillStyle = color;
+  const cx = x+size/2, cy = y+size/2, r = size*0.42;
+  ctx.beginPath();
+  switch(shape) {
+    case "circle": ctx.arc(cx,cy,r,0,Math.PI*2); break;
+    case "square": ctx.rect(x+size*.16,y+size*.16,size*.68,size*.68); break;
+    case "diamond":
+      ctx.moveTo(cx,y+size*.08); ctx.lineTo(x+size*.92,cy); ctx.lineTo(cx,y+size*.92); ctx.lineTo(x+size*.08,cy); ctx.closePath(); break;
+    case "triangle":
+      ctx.moveTo(cx,y+size*.12); ctx.lineTo(x+size*.86,y+size*.82); ctx.lineTo(x+size*.14,y+size*.82); ctx.closePath(); break;
+    case "cross": { const t=size*.26; ctx.rect(cx-t/2,y+size*.14,t,size*.72); ctx.rect(x+size*.14,cy-t/2,size*.72,t); break; }
+    case "star": {
+      const spikes=5, outer=r*1.05, inner=r*.48;
+      for (let i=0;i<spikes*2;i++){ const rad=i%2===0?outer:inner; const a=(Math.PI/spikes)*i-Math.PI/2; const px=cx+Math.cos(a)*rad, py=cy+Math.sin(a)*rad; i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+      ctx.closePath(); break;
+    }
+  }
+  ctx.fill();
+}
+
+function render() {
+  if (!g) return;
+  const s = cellSize();
+  cv.width = g.cols*s; cv.height = g.rows*s;
+  // 背景网格
+  ctx.fillStyle = "#0d0d10"; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle = "rgba(255,255,255,.03)"; ctx.lineWidth = 1;
+  for (let c=1;c<g.cols;c++){ ctx.beginPath(); ctx.moveTo(c*s,0); ctx.lineTo(c*s,cv.height); ctx.stroke(); }
+  for (let r=1;r<g.rows;r++){ ctx.beginPath(); ctx.moveTo(0,r*s); ctx.lineTo(cv.width,r*s); ctx.stroke(); }
+
+  // 敌对地形（紫色系圆角块 + 斜纹：与深色背景对比强烈，且不与绿/红食物撞语义）
+  for (const key of g.terrain) {
+    const [r,c] = key.split(",").map(Number);
+    const x=c*s, y=r*s;
+    rr(ctx, x+1, y+1, s-2, s-2, Math.max(3,s*.22));
+    ctx.fillStyle = "#7c3aed"; ctx.fill();
+    rr(ctx, x+2.5, y+2.5, s-5, s-5, Math.max(2,s*.16));
+    ctx.fillStyle = "#4c1d95"; ctx.fill();
+    // 斜纹（裁剪到内块）
+    ctx.save(); rr(ctx, x+2.5, y+2.5, s-5, s-5, Math.max(2,s*.16)); ctx.clip();
+    ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 1.5;
+    for (let o=-s;o<s*2;o+=6){ ctx.beginPath(); ctx.moveTo(x+o, y+s); ctx.lineTo(x+o+s, y); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  // 解谜目标点
+  if (g.mode==="puzzle" && g.goal) {
+    const [gr,gc] = g.goal;
+    const pulse = .5+.5*Math.sin(performance.now()/200);
+    ctx.fillStyle = "rgba(34,197,94,"+(0.25+0.3*pulse)+")";
+    rr(ctx, gc*s+2, gr*s+2, s-4, s-4, 4); ctx.fill();
+    ctx.strokeStyle = "#22c55e"; ctx.lineWidth = 2;
+    rr(ctx, gc*s+2, gr*s+2, s-4, s-4, 4); ctx.stroke();
+    ctx.fillStyle = "#f0fdf4"; ctx.font = "bold "+Math.floor(s*.5)+"px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("★", gc*s+s/2, gr*s+s/2+1);
+  }
+
+  // 食物
+  for (const f of g.foods) drawShape(f.c*s, f.r*s, s, FOODS[f.type].shape, FOODS[f.type].color);
+
+  // 蛇（圆角节 + 头部眼睛）
+  for (let i=g.snake.length-1;i>=0;i--) {
+    const seg = g.snake[i];
+    const x=seg.c*s, y=seg.r*s;
+    const t = i/Math.max(1,g.snake.length-1);
+    ctx.fillStyle = i===0 ? "#4ade80" : "rgb("+Math.round(74-30*t)+","+Math.round(222-90*t)+","+Math.round(128-50*t)+")";
+    rr(ctx, x+1.5, y+1.5, s-3, s-3, Math.max(3,s*.28)); ctx.fill();
+  }
+  const head = g.snake[0];
+  const hx=head.c*s+s/2, hy=head.r*s+s/2;
+  ctx.fillStyle = "#0a0a0c";
+  const eo = s*.16, er = Math.max(1.5,s*.09);
+  const dxx = g.dir.dc, dyy = g.dir.dr;
+  ctx.beginPath(); ctx.arc(hx+dxx*eo - dyy*eo*.7, hy+dyy*eo - dxx*eo*.7, er, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(hx+dxx*eo + dyy*eo*.7, hy+dyy*eo + dxx*eo*.7, er, 0, Math.PI*2); ctx.fill();
+}
+
+/* ================= 主循环 ================= */
+function loop(ts) {
+  if (g && g.status==="playing" && ts - lastStepTs >= currentStepMs()) {
+    lastStepTs = ts;
+    step();
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* ================= 菜单逻辑 ================= */
+const MODE_NAMES = { endless:"无尽模式", clear:"通关模式", bonus:"Bonus 模式", puzzle:"解谜模式" };
+const ORIENT_NAMES = { auto:"自动", landscape:"横屏 30×20", portrait:"竖屏 20×30" };
+
+function showMenuScreen(name) {
+  menuScreen = name; menuHighlight = 0;
+  for (const s of document.querySelectorAll(".menu-screen")) s.classList.add("hidden");
+  $("menu-"+name).classList.remove("hidden");
+  updateMenuHighlight();
+}
+function menuItems() { return [...document.querySelectorAll("#menu-"+menuScreen+" .menu-item")]; }
+function updateMenuHighlight() {
+  const items = menuItems();
+  items.forEach((it,i)=> it.classList.toggle("hovered", i===menuHighlight));
+}
+function activateHighlighted() {
+  const items = menuItems();
+  if (items[menuHighlight]) items[menuHighlight].click();
+}
+function selectMode(m) {
+  selectedMode = m;
+  $("cur-mode").textContent = MODE_NAMES[m];
+  document.querySelectorAll('.menu-item[data-mode]').forEach(it=> it.querySelector(".check").textContent = it.dataset.mode===m ? "✓" : "");
+}
+function selectOrient(o) {
+  selectedOrient = o;
+  $("cur-orient").textContent = ORIENT_NAMES[o];
+  document.querySelectorAll('.menu-item[data-orient]').forEach(it=> it.querySelector(".check").textContent = it.dataset.orient===o ? "✓" : "");
+}
+
+// 图例生成
+function buildLegend() {
+  const legend = $("legend");
+  legend.innerHTML = "";
+  const glyphSvg = (shape,color) => {
+    const S=22, cx=S/2, cy=S/2, r=S*.36;
+    let inner="";
+    switch(shape){
+      case "circle": inner='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+color+'"/>'; break;
+      case "square": inner='<rect x="'+(S*.18)+'" y="'+(S*.18)+'" width="'+(S*.64)+'" height="'+(S*.64)+'" rx="3" fill="'+color+'"/>'; break;
+      case "diamond": inner='<polygon points="'+cx+','+(S*.08)+' '+(S*.92)+','+cy+' '+cx+','+(S*.92)+' '+(S*.08)+','+cy+'" fill="'+color+'"/>'; break;
+      case "triangle": inner='<polygon points="'+cx+','+(S*.12)+' '+(S*.86)+','+(S*.82)+' '+(S*.14)+','+(S*.82)+'" fill="'+color+'"/>'; break;
+      case "cross": { const t=S*.26; inner='<rect x="'+(cx-t/2)+'" y="'+(S*.14)+'" width="'+t+'" height="'+(S*.72)+'" fill="'+color+'"/><rect x="'+(S*.14)+'" y="'+(cy-t/2)+'" width="'+(S*.72)+'" height="'+t+'" fill="'+color+'"/>'; break; }
+      case "star": { let pts=""; const spikes=5, outer=r*1.05, innerR=r*.48; for(let i=0;i<spikes*2;i++){const rad=i%2===0?outer:innerR; const a=(Math.PI/spikes)*i-Math.PI/2; pts+=(cx+Math.cos(a)*rad)+","+(cy+Math.sin(a)*rad)+" ";} inner='<polygon points="'+pts+'" fill="'+color+'"/>'; break; }
+    }
+    return '<svg width="'+S+'" height="'+S+'" viewBox="0 0 '+S+' '+S+'">'+inner+'</svg>';
+  };
+  for (const [key,F] of Object.entries(FOODS)) {
+    const li = document.createElement("div");
+    li.className = "li";
+    li.innerHTML = '<span class="glyph">'+glyphSvg(F.shape,F.color)+'</span><span class="nm">'+F.name+'</span><span class="fx">'+F.effect+'</span>'+(F.hostile?'<span class="tag-neg">危险</span>':'<span class="tag-pos">安全</span>');
+    legend.appendChild(li);
+  }
+  // 地形条目
+  const li = document.createElement("div");
+  li.className = "li";
+  li.innerHTML = '<span class="glyph" style="background:#4c1d95;border:1px solid #7c3aed;border-radius:5px"></span><span class="nm">敌对地形</span><span class="fx">撞上去即死亡（紫色系墙体）</span><span class="tag-neg">危险</span>';
+  legend.appendChild(li);
+}
+
+// 菜单点击委托
+menuEl.addEventListener("click", (e) => {
+  const item = e.target.closest(".menu-item");
+  if (!item) return;
+  menuHighlight = menuItems().indexOf(item);
+  updateMenuHighlight();
+  handleItem(item);
+});
+function handleItem(item) {
+  if (item.dataset.back !== undefined) { showMenuScreen("main"); return; }
+  const m = item.dataset.mode, o = item.dataset.orient, a = item.dataset.action;
+  if (m) { selectMode(m); showMenuScreen("main"); return; }
+  if (o) { selectOrient(o); showMenuScreen("main"); return; }
+  if (a === "mode")   { showMenuScreen("mode"); return; }
+  if (a === "orient") { showMenuScreen("orient"); return; }
+  if (a === "legend") { showMenuScreen("legend"); return; }
+  if (a === "start")  { startGame(); return; }
+}
+
+function startGame() {
+  menuEl.classList.add("hidden");
+  gameWrap.classList.remove("hidden");
+  newGame();
+}
+function backToMenu() {
+  g = null;
+  hideOverlay();
+  gameWrap.classList.add("hidden");
+  menuEl.classList.remove("hidden");
+  showMenuScreen("main");
+}
+
+/* ================= 输入 ================= */
+const KEYDIRS = {
+  ArrowUp:{dr:-1,dc:0}, KeyW:{dr:-1,dc:0},
+  ArrowDown:{dr:1,dc:0}, KeyS:{dr:1,dc:0},
+  ArrowLeft:{dr:0,dc:-1}, KeyA:{dr:0,dc:-1},
+  ArrowRight:{dr:0,dc:1}, KeyD:{dr:0,dc:1},
+};
+window.addEventListener("keydown", (e) => {
+  // 菜单态
+  if (!menuEl.classList.contains("hidden")) {
+    const k = e.key;
+    if (k>="1" && k<="4") { selectMode(["endless","clear","bonus","puzzle"][+k-1]); return; }
+    if (k>="5" && k<="7") { selectOrient(["auto","landscape","portrait"][+k-5]); return; }
+    if (k==="ArrowUp")   { e.preventDefault(); menuHighlight=(menuHighlight-1+menuItems().length)%menuItems().length; updateMenuHighlight(); return; }
+    if (k==="ArrowDown") { e.preventDefault(); menuHighlight=(menuHighlight+1)%menuItems().length; updateMenuHighlight(); return; }
+    if (k==="Enter")     { e.preventDefault(); activateHighlighted(); return; }
+    if (k==="Escape" && menuScreen!=="main") { showMenuScreen("main"); return; }
+    return;
+  }
+  // 结算覆盖层
+  if (!overlay.classList.contains("hidden")) {
+    if (e.key==="Enter") { e.preventDefault(); newGame(); return; }
+    if (e.key==="Escape") { e.preventDefault(); backToMenu(); return; }
+    if (e.code==="Space" && g && g.status==="paused") { e.preventDefault(); g.status="playing"; lastStepTs=performance.now(); hideOverlay(); return; }
+    return;
+  }
+  // 游戏中
+  if (!g) return;
+  const d = KEYDIRS[e.code];
+  if (d) {
+    e.preventDefault();
+    // 禁止 180° 掉头（必须对比 nextDir 而非 dir：否则一步内连按“↑再←”时，←会被误判为对旧方向的掉头而吞掉）
+    if (d.dr === -g.nextDir.dr && d.dc === -g.nextDir.dc) return;
+    g.nextDir = d;
+    return;
+  }
+  if (e.code==="Space") {
+    e.preventDefault();
+    if (g.status==="playing") { g.status="paused"; showOverlay('<h2>⏸ 已暂停</h2><div class="ops">空格 继续 · R 重开 · Esc 返回菜单</div>'); }
+    else if (g.status==="paused") { g.status="playing"; lastStepTs=performance.now(); hideOverlay(); }
+    return;
+  }
+  if (e.code==="KeyR") { e.preventDefault(); newGame(); return; }
+  if (e.key==="Escape") { e.preventDefault(); backToMenu(); return; }
+});
+
+// 触屏滑动
+let touchStart = null;
+cv.addEventListener("touchstart", (e)=>{ touchStart = e.touches[0]; }, {passive:true});
+cv.addEventListener("touchend", (e)=>{
+  if (!touchStart || !g) return;
+  const dx = e.changedTouches[0].clientX - touchStart.clientX;
+  const dy = e.changedTouches[0].clientY - touchStart.clientY;
+  if (Math.max(Math.abs(dx),Math.abs(dy)) < 24) return;
+  let d;
+  if (Math.abs(dx) > Math.abs(dy)) d = dx>0 ? {dr:0,dc:1} : {dr:0,dc:-1};
+  else d = dy>0 ? {dr:1,dc:0} : {dr:-1,dc:0};
+  if (!(d.dr === -g.nextDir.dr && d.dc === -g.nextDir.dc)) g.nextDir = d;
+  touchStart = null;
+}, {passive:true});
+
+// 覆盖层点击继续
+overlay.addEventListener("click", ()=>{
+  if (g && (g.status==="dead"||g.status==="won")) newGame();
+  else if (g && g.status==="paused") { g.status="playing"; lastStepTs=performance.now(); hideOverlay(); }
+});
+
+window.addEventListener("resize", ()=>{ if (g) render(); });
+
+/* ================= 初始化 ================= */
+selectMode("endless");
+selectOrient("auto");
+buildLegend();
+showMenuScreen("main");
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
